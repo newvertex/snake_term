@@ -32,14 +32,45 @@ impl Default for Point {
     }
 }
 
+enum Direction {
+    Right,
+    Down,
+    Left,
+    Up,
+}
+
+struct Snake {
+    body: Vec<Point>,
+    dir: Direction,
+}
+
+impl Snake {
+    fn new(body: Vec<Point>, dir: Direction) -> Self {
+        Self {
+            body,
+            dir,
+        }
+    }
+}
+
+impl Default for Snake {
+    fn default() -> Self {
+        Self {
+            body: vec![Point::new(2, 5), Point::new(2, 4)],
+            dir: Direction::Up,
+        }
+    }
+}
+
 fn main() {
     // Array is X, Y but matrix is Row, Column
     // create the main board 2d-array
     let mut board: [[i8; COLS]; ROWS] = [[0; COLS]; ROWS];
+    let mut food: Option<Point> = None;
 
     // snake is just one-dimensional dynamic array(vector) containing points of each part of snake
-    let mut snake: Vec<Point> = vec![Point::default()];
-    let mut food: Option<Point> = None;
+    let mut snake: Snake = Snake::default();
+    let mut move_dir: Direction = Direction::Down;
 
     create_wall(&mut board);
     place_snake(&mut board, &snake);
@@ -97,9 +128,9 @@ fn print_dbg(board: &[[i8; COLS]; ROWS]) {
 }
 
 // place & combine the snake into the board
-fn place_snake(board: &mut [[i8; COLS]; ROWS], snake: &Vec<Point>) {
+fn place_snake(board: &mut [[i8; COLS]; ROWS], snake: &Snake) {
     // I start with first method because I think it would be easy maybe!?
-    for (index, point) in snake.iter().enumerate() {
+    for (index, point) in snake.body.iter().enumerate() {
         board[point.y][point.x] = if index == 0 { 2 } else { 1 };
     }
 }
