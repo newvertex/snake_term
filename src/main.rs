@@ -46,6 +46,8 @@ fn main() {
     generate_food(&mut board, &mut food);
     print_dbg(&board);
 
+    println!("{}", render(&board));
+
 }
 
 fn generate_food(board: &mut [[i8; COLS]; ROWS], food: &mut Option<Point>) {
@@ -100,4 +102,30 @@ fn place_snake(board: &mut [[i8; COLS]; ROWS], snake: &Vec<Point>) {
     for (index, point) in snake.iter().enumerate() {
         board[point.y][point.x] = if index == 0 { 2 } else { 1 };
     }
+}
+
+// render board to string
+fn render(board: &[[i8; COLS]; ROWS]) -> String {
+    let mut c;
+    let mut buffer = "".to_string();
+
+    for y in 0..ROWS {
+        for x in 0..COLS {
+            // ROW, COL == y, x
+            c = match board[y][x] {
+                -1 => '$',
+                0 => '_',
+                1 => '#',
+                2 => '%',
+                3 => '*',
+                _ => '~'
+            };
+
+            buffer.push(' ');
+            buffer.push(c);
+        }
+        buffer.push('\n');
+    }
+
+    buffer
 }
