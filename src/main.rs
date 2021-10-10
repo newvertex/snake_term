@@ -57,36 +57,63 @@ impl Default for Snake {
     fn default() -> Self {
         Self {
             body: vec![Point::new(2, 5), Point::new(2, 4)],
-            dir: Direction::Up,
+            dir: Direction::Down,
         }
     }
 }
 
+enum Shape {
+    Empty = 0,
+    Wall = -1,
+    Body = 1,
+    Head = 2,
+    Food = 3,
+}
+
 fn main() {
     // Array is X, Y but matrix is Row, Column
-    // create the main board 2d-array
-    let mut board: [[i8; COLS]; ROWS] = [[0; COLS]; ROWS];
+    let (level, mut snake) = load_level();
+
     let mut food: Option<Point> = None;
+    generate_food(&mut food, &level, &snake);
 
-    // snake is just one-dimensional dynamic array(vector) containing points of each part of snake
-    let mut snake: Snake = Snake::default();
-    let mut move_dir: Direction = Direction::Down;
-
-    create_wall(&mut board);
-    place_snake(&mut board, &snake);
-    generate_food(&mut board, &mut food);
-    print_dbg(&board);
-
-    println!("{}", render(&board));
+    println!("{}", render(&level, &snake, &food));
 
 }
 
-fn generate_food(board: &mut [[i8; COLS]; ROWS], food: &mut Option<Point>) {
+// load default level for now
+fn load_level() -> (Vec<Vec<i8>>, Snake) {
+    // get the width, height from the map file
+    let width = COLS;
+    let height = ROWS;
+
+    // get snake start position and create it
+    let snake = Snake::default();
+
+    // load the maps file and fill the level vector with it's value 
+    let mut level = vec![vec![Shape::Empty as i8; width]; height];
+
+    for row in 0..height {
+        level[row][0] = Shape::Wall as i8;
+        level[row][width - 1] = Shape::Wall as i8;
+    }
+    for column in 1..(width - 1) {
+        level[0][column] = Shape::Wall as i8;
+        level[height - 1][column] = Shape::Wall as i8;
+    }
+
+    (level, snake)
+}
+
+fn generate_food(food: &mut Option<Point>, level: &Vec<Vec<i8>>, snake: &Snake) {
     let mut rng = rand::thread_rng();
+    let width = level[0].len();
+    let height = level.len();
+
     loop {
-        let x: usize = rng.gen_range(1..COLS-1);
-        let y: usize = rng.gen_range(1..ROWS-1);
-        if board[y][x] != 0 {
+        let x: usize = rng.gen_range(0..width);
+        let y: usize = rng.gen_range(0..height);
+        if level[y][x] != 0 || snake.body.iter().any(|p| p.x == x && p.y == y) {
             continue;
         }
 
@@ -96,67 +123,46 @@ fn generate_food(board: &mut [[i8; COLS]; ROWS], food: &mut Option<Point>) {
             *food = Some(Point::new(x, y));
         }
 
-        board[y][x] = 3;
         break;
     }
 }
 
-// create wall around the board
-fn create_wall(board: &mut [[i8; COLS]; ROWS]) {
-    // loop from 0 to ROW but just change the first and last columns value
-    // loop from 0 to COL but just change the first and last rows value
-    for y in 0..ROWS {
-        board[y][0] = -1;       // first column
-        board[y][COLS - 1] = -1; // last column
-    }
-    // skip first and last column because they are filled in above loop
-    for x in 1..COLS-1 {
-        board[0][x] = -1;       // first row
-        board[ROWS - 1][x] = -1; // last row
-    }
-}
-
-// print just the raw value of each array cell
-fn print_dbg(board: &[[i8; COLS]; ROWS]) {
-    for y in 0..ROWS {
-        for x in 0..COLS {
-            // ROW, COL == y, x
-            print!("{:2}", board[y][x]);
-        }
-        print!("\n");
-    }
-}
-
-// place & combine the snake into the board
-fn place_snake(board: &mut [[i8; COLS]; ROWS], snake: &Snake) {
-    // I start with first method because I think it would be easy maybe!?
-    for (index, point) in snake.body.iter().enumerate() {
-        board[point.y][point.x] = if index == 0 { 2 } else { 1 };
-    }
-}
-
 // render board to string
-fn render(board: &[[i8; COLS]; ROWS]) -> String {
-    let mut c;
-    let mut buffer = "".to_string();
+fn render(level: &Vec<Vec<i8>>, snake: &Snake, food: &Option<Point>) -> String {
+    // create a backbuffer and put everything together before start rendering
+    let mut back_buffer = level.clone();
 
-    for y in 0..ROWS {
-        for x in 0..COLS {
-            // ROW, COL == y, x
-            c = match board[y][x] {
-                -1 => '$',
-                0 => '_',
-                1 => '#',
-                2 => '%',
-                3 => '*',
+    for point in &snake.body {
+        back_buffer[point.y][point.x] = if snake.body.first().unwrap() == point {
+             Shape::Head as i8
+        } else {
+            Shape::Body as i8
+        };
+    }
+
+    if let Some(point) = food {
+        back_buffer[point.y][point.x] = Shape::Food as i8;
+    }
+
+    let mut output_buffer = "".to_string();
+    let mut c;
+    for row in &back_buffer {
+        for col in row {
+            let shape: Shape = unsafe { std::mem::transmute(*col) };
+            c = match shape {
+                Shape::Empty => '_',
+                Shape::Wall => '$',
+                Shape::Body => '#',
+                Shape::Head => '@',
+                Shape::Food => '%',
                 _ => '~'
             };
 
-            buffer.push(' ');
-            buffer.push(c);
+            output_buffer.push(' ');
+            output_buffer.push(c);
         }
-        buffer.push('\n');
+        output_buffer.push('\n');
     }
 
-    buffer
+    output_buffer
 }
