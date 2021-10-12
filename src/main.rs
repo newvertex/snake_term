@@ -93,18 +93,18 @@ fn main() {
         print!("\x1B[2J\x1B[1;1H"); // x1B => 27 ac char => escape, clear and move cursor to 1, 1
         println!("{}", render(&level, &snake, &food));
 
-        for i in (0..snake.body.len()).rev() {
-            if i != 0 {
-                snake.body[i] = snake.body[i - 1];
-            } else {
-                match snake.dir {
-                    Direction::Right => snake.body[i].add(1, 0),
-                    Direction::Down => snake.body[i].add(0, 1),
-                    Direction::Left => snake.body[i].sub(1, 0),
-                    Direction::Up => snake.body[i].sub(0, 1),
-                }
-            }
+        // make a copy of snake head and change it's position based on direction
+        let mut snake_head = snake.body[0];
+        match snake.dir {
+            Direction::Right => snake_head.add(1, 0),
+            Direction::Down => snake_head.add(0, 1),
+            Direction::Left => snake_head.sub(1, 0),
+            Direction::Up => snake_head.sub(0, 1),
         }
+        // insert new head as first element and pop the last element
+        snake.body.insert(0, snake_head);
+        snake.body.pop();
+
         // just for test
         std::thread::sleep(std::time::Duration::from_secs(1));
 
