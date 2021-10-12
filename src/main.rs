@@ -103,7 +103,26 @@ fn main() {
         }
         // insert new head as first element and pop the last element
         snake.body.insert(0, snake_head);
-        snake.body.pop();
+
+        // if the next position is not the food then remove the tail else just remove the food and regenerate it, let's the snake grow
+        if snake_head != food.unwrap()  {
+            snake.body.pop();
+        } else {
+            // TODO: add score
+            generate_food(&mut food, &level, &snake);
+        }
+
+        // check snake new head have any collision with it self if true then game over
+        if snake.body[1..].contains(&snake_head) {
+            println!("Game Over!");
+            break;
+        }
+
+        // check the new head position inside the map to see if there is a wall or it's empty cell, if it's the wall then game over
+        if level[snake_head.y][snake_head.x] == Shape::Wall as i8 {
+            println!("Hit the wall Game Over!");
+            break;
+        }
 
         // just for test
         std::thread::sleep(std::time::Duration::from_secs(1));
