@@ -3,7 +3,7 @@ use rand::Rng;
 const COLS: usize = 10;
 const ROWS: usize = 15;
 
-#[derive(PartialEq, Eq, Clone, Copy)]
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
 struct Point {
     x: usize,
     y: usize,
@@ -20,6 +20,16 @@ impl Point {
     fn set(&mut self, x: usize, y: usize) {
         self.x = x;
         self.y = y;
+    }
+
+    fn add(&mut self, x: usize, y: usize) {
+        self.x += x;
+        self.y += y;
+    }
+
+    fn sub(&mut self, x: usize, y: usize) {
+        self.x -= x;
+        self.y -= y;
     }
 }
 
@@ -56,7 +66,7 @@ impl Snake {
 impl Default for Snake {
     fn default() -> Self {
         Self {
-            body: vec![Point::new(2, 5), Point::new(2, 4)],
+            body: vec![Point::new(2, 5), Point::new(2, 4), Point::new(2, 3)],
             dir: Direction::Down,
         }
     }
@@ -78,6 +88,41 @@ fn main() {
     generate_food(&mut food, &level, &snake);
 
     println!("{}", render(&level, &snake, &food));
+    let mut cx = 0;
+    loop {
+        print!("\x1B[2J\x1B[1;1H"); // x1B => 27 ac char => escape, clear and move cursor to 1, 1
+        println!("{}", render(&level, &snake, &food));
+
+        for i in (0..snake.body.len()).rev() {
+            if i != 0 {
+                snake.body[i] = snake.body[i - 1];
+            } else {
+                match snake.dir {
+                    Direction::Right => snake.body[i].add(1, 0),
+                    Direction::Down => snake.body[i].add(0, 1),
+                    Direction::Left => snake.body[i].sub(1, 0),
+                    Direction::Up => snake.body[i].sub(0, 1),
+                }
+            }
+        }
+        // just for test
+        std::thread::sleep(std::time::Duration::from_secs(1));
+
+        cx += 1;
+        if cx == 3 {
+            snake.dir = Direction::Right; 
+        }
+        if cx == 6 {
+            snake.dir = Direction::Up; 
+        }
+        if cx == 9 {
+            snake.dir = Direction::Left; 
+        }
+        if cx == 12 {
+            snake.dir = Direction::Down; 
+            cx = 0;
+        }
+    }
 
 }
 
@@ -155,7 +200,6 @@ fn render(level: &Vec<Vec<i8>>, snake: &Snake, food: &Option<Point>) -> String {
                 Shape::Body => '#',
                 Shape::Head => '@',
                 Shape::Food => '%',
-                _ => '~'
             };
 
             output_buffer.push(' ');
