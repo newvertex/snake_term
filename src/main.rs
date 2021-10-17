@@ -81,68 +81,55 @@ enum Shape {
 }
 
 fn main() {
-    // Array is X, Y but matrix is Row, Column
     let (level, mut snake) = load_level();
-
     let mut food: Option<Point> = None;
     generate_food(&mut food, &level, &snake);
 
-    println!("{}", render(&level, &snake, &food));
-    let mut cx = 0;
     loop {
         print!("\x1B[2J\x1B[1;1H"); // x1B => 27 ac char => escape, clear and move cursor to 1, 1
         println!("{}", render(&level, &snake, &food));
 
-        // make a copy of snake head and change it's position based on direction
-        let mut snake_head = snake.body[0];
-        match snake.dir {
-            Direction::Right => snake_head.add(1, 0),
-            Direction::Down => snake_head.add(0, 1),
-            Direction::Left => snake_head.sub(1, 0),
-            Direction::Up => snake_head.sub(0, 1),
-        }
-        // insert new head as first element and pop the last element
-        snake.body.insert(0, snake_head);
-
-        // if the next position is not the food then remove the tail else just remove the food and regenerate it, let's the snake grow
-        if snake_head != food.unwrap()  {
-            snake.body.pop();
-        } else {
-            // TODO: add score
-            generate_food(&mut food, &level, &snake);
-        }
-
-        // check snake new head have any collision with it self if true then game over
-        if snake.body[1..].contains(&snake_head) {
-            println!("Game Over!");
+        if !update(&level, &mut snake, &mut food) {
             break;
         }
 
-        // check the new head position inside the map to see if there is a wall or it's empty cell, if it's the wall then game over
-        if level[snake_head.y][snake_head.x] == Shape::Wall as i8 {
-            println!("Hit the wall Game Over!");
-            break;
-        }
-
-        // just for test
         std::thread::sleep(std::time::Duration::from_secs(1));
+    }
+}
 
-        cx += 1;
-        if cx == 3 {
-            snake.dir = Direction::Right; 
-        }
-        if cx == 6 {
-            snake.dir = Direction::Up; 
-        }
-        if cx == 9 {
-            snake.dir = Direction::Left; 
-        }
-        if cx == 12 {
-            snake.dir = Direction::Down; 
-            cx = 0;
-        }
+fn update(level: &Vec<Vec<i8>>, snake: &mut Snake, food: &mut Option<Point>) -> bool {
+    // make a copy of snake head and change it's position based on direction
+    let mut snake_head = snake.body[0];
+    match snake.dir {
+        Direction::Right => snake_head.add(1, 0),
+        Direction::Down => snake_head.add(0, 1),
+        Direction::Left => snake_head.sub(1, 0),
+        Direction::Up => snake_head.sub(0, 1),
+    }
+    // insert new head as first element and pop the last element
+    snake.body.insert(0, snake_head);
+
+    // if the next position is not the food then remove the tail else just remove the food and regenerate it, let's the snake grow
+    if snake_head != food.unwrap()  {
+        snake.body.pop();
+    } else {
+        // TODO: add score
+        generate_food(food, &level, &snake);
     }
 
+    // check snake new head have any collision with it self if true then game over
+    if snake.body[1..].contains(&snake_head) {
+        println!("Game Over!");
+        return false;
+    }
+
+    // check the new head position inside the map to see if there is a wall or it's empty cell, if it's the wall then game over
+    if level[snake_head.y][snake_head.x] == Shape::Wall as i8 {
+        println!("Hit the wall Game Over!");
+        return false;
+    }
+   
+    true
 }
 
 // load default level for now
