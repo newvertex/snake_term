@@ -1,4 +1,8 @@
+use std::time::Duration;
+
 use rand::Rng;
+use crossterm::terminal::{enable_raw_mode, disable_raw_mode};
+use crossterm::event::{Event, KeyCode, KeyEvent, poll, read};
 
 const COLS: usize = 10;
 const ROWS: usize = 15;
@@ -42,6 +46,7 @@ impl Default for Point {
     }
 }
 
+#[derive(PartialEq, Eq, Clone, Copy)]
 enum Direction {
     Right,
     Down,
@@ -60,6 +65,18 @@ impl Snake {
             body,
             dir,
         }
+    }
+
+    fn move_to(&mut self, dir: Direction) {
+        use Direction::*;
+
+        self.dir = match dir {
+            Right if self.dir != Left => Right,
+            Down if self.dir != Up => Down,
+            Left if self.dir != Right => Left,
+            Up if self.dir != Down => Up,
+            _ => self.dir,
+        };
     }
 }
 
@@ -80,21 +97,44 @@ enum Shape {
     Food = 3,
 }
 
-fn main() {
+fn main() -> crossterm::Result<()> {
     let (level, mut snake) = load_level();
     let mut food: Option<Point> = None;
     generate_food(&mut food, &level, &snake);
 
+    enable_raw_mode()?;
+
     loop {
         print!("\x1B[2J\x1B[1;1H"); // x1B => 27 ac char => escape, clear and move cursor to 1, 1
         println!("{}", render(&level, &snake, &food));
+        
+        handle_input(&mut snake)?;
 
         if !update(&level, &mut snake, &mut food) {
             break;
         }
 
-        std::thread::sleep(std::time::Duration::from_secs(1));
     }
+
+    disable_raw_mode()
+}
+
+fn handle_input(snake: &mut Snake) -> crossterm::Result<()> {
+    if poll(Duration::from_millis(500))? {
+        if let Event::Key(KeyEvent { code, .. }) = read()? {
+            match code {
+                KeyCode::Enter => todo!(),
+                KeyCode::Left | KeyCode::Char('a') => snake.move_to(Direction::Left),
+                KeyCode::Right | KeyCode::Char('d') => snake.move_to(Direction::Right),
+                KeyCode::Up | KeyCode::Char('w') => snake.move_to(Direction::Up),
+                KeyCode::Down | KeyCode::Char('s') => snake.move_to(Direction::Down),
+                KeyCode::Esc => todo!(),
+                _ => {}
+            }
+        }
+    }
+
+    Ok(())
 }
 
 fn update(level: &Vec<Vec<i8>>, snake: &mut Snake, food: &mut Option<Point>) -> bool {
