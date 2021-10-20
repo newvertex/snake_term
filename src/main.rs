@@ -1,11 +1,17 @@
+use std::collections::HashMap;
 use std::time::Duration;
 
 use rand::Rng;
+
 use crossterm::terminal::{enable_raw_mode, disable_raw_mode};
 use crossterm::event::{Event, KeyCode, KeyEvent, poll, read};
 
+use quad_snd::{AudioContext, Sound};
+
 const COLS: usize = 10;
 const ROWS: usize = 15;
+const ASSETS: &str = "assets/";
+
 
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
 struct Point {
@@ -97,25 +103,75 @@ enum Shape {
     Food = 3,
 }
 
+struct Audio {
+    ctx: AudioContext,
+    sounds: HashMap<String, Sound>,
+}
+
+impl Audio {
+    fn new() -> Self {
+        Self {
+            ctx: AudioContext::new(),
+            sounds: HashMap::new(),
+        }
+    }
+
+    fn add_sound(&mut self, file_names: &[&str]) {
+        for file in file_names {
+            let file_path = ASSETS.to_string() + file + ".ogg";
+            let bytes = std::fs::read(file_path).unwrap();
+            let sound = Sound::load(&mut self.ctx, bytes.as_slice());
+            self.sounds.insert(file.to_string(), sound);
+        }
+    }
+
+    fn play_once(&mut self, sound_name: &str) {
+        let snd = self.sounds.get_mut(sound_name).unwrap();
+        snd.stop(&mut self.ctx);
+        snd.play(&mut self.ctx, Default::default());
+    }
+
+    fn play_loop(&mut self, sound_name: &str) {
+        let snd = self.sounds.get_mut(sound_name).unwrap();
+        snd.stop(&mut self.ctx);
+        snd.play(&mut self.ctx, quad_snd::PlaySoundParams{ looped: true, volume: 1.0 });
+    }
+
+    fn stop(&mut self, sound_name: &str) {
+        self.sounds.get_mut(sound_name).unwrap().stop(&mut self.ctx);
+    }
+
+    fn stop_all(&mut self) {
+        for sound in self.sounds.values_mut() {
+            sound.stop(&mut self.ctx);
+        }
+    }
+}
+
 fn main() -> crossterm::Result<()> {
     let (level, mut snake) = load_level();
     let mut food: Option<Point> = None;
     generate_food(&mut food, &level, &snake);
 
+    let mut audio = Audio::new();
+    audio.add_sound(&["snake_hit", "snake_grow", "music"]);
+    audio.play_loop("music");
+    
     enable_raw_mode()?;
 
     loop {
         print!("\x1B[2J\x1B[1;1H"); // x1B => 27 ac char => escape, clear and move cursor to 1, 1
         println!("{}", render(&level, &snake, &food));
-        
+
         handle_input(&mut snake)?;
 
-        if !update(&level, &mut snake, &mut food) {
+        if !update(&level, &mut snake, &mut food, &mut audio) {
             break;
         }
-
     }
-
+    
+    audio.stop("music");
+    
     disable_raw_mode()
 }
 
@@ -137,7 +193,7 @@ fn handle_input(snake: &mut Snake) -> crossterm::Result<()> {
     Ok(())
 }
 
-fn update(level: &Vec<Vec<i8>>, snake: &mut Snake, food: &mut Option<Point>) -> bool {
+fn update(level: &Vec<Vec<i8>>, snake: &mut Snake, food: &mut Option<Point>, audio: &mut Audio) -> bool {
     // make a copy of snake head and change it's position based on direction
     let mut snake_head = snake.body[0];
     match snake.dir {
@@ -154,17 +210,22 @@ fn update(level: &Vec<Vec<i8>>, snake: &mut Snake, food: &mut Option<Point>) -> 
         snake.body.pop();
     } else {
         // TODO: add score
+        audio.play_once("snake_grow");
         generate_food(food, &level, &snake);
     }
 
     // check snake new head have any collision with it self if true then game over
     if snake.body[1..].contains(&snake_head) {
+        audio.play_once("snake_hit");
+        std::thread::sleep(Duration::from_millis(500));
         println!("Game Over!");
         return false;
     }
 
     // check the new head position inside the map to see if there is a wall or it's empty cell, if it's the wall then game over
     if level[snake_head.y][snake_head.x] == Shape::Wall as i8 {
+        audio.play_once("snake_hit");
+        std::thread::sleep(Duration::from_millis(500));
         println!("Hit the wall Game Over!");
         return false;
     }
